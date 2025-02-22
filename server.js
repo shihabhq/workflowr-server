@@ -1,12 +1,20 @@
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
+import { configDotenv } from "dotenv";
+import * as dotenv from "dotenv";
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-mongoose.connect("mongodb://127.0.0.1:27017/kanbanDB");
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5ok9c.mongodb.net/DB?retryWrites=true&w=majority&appName=Cluster0`;
+
+mongoose
+  .connect(uri)
+  .then((res) => console.log("connected to db"))
+  .catch((e) => console.log("Connection failed"));
 
 const taskSchema = new mongoose.Schema({
   title: String,
@@ -22,6 +30,26 @@ app.get("/tasks/:userID", async (req, res) => {
   res.json(tasks);
 });
 
+//add new user
+app.post("/users", async (req, res) => {
+  const { name, email, role } = req.body;
+  if (!name && !email && !role) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+  try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.json({ message: "user already exists" });
+    }
+
+    const user = new User({ name, email, role });
+    await user.save();
+    res.status(201).send({ message: "successfully created" });
+  } catch (error) {
+    res.status(500).send({ message: "Internal server error" });
+  }
+});
+
 // Add a task
 app.post("/tasks", async (req, res) => {
   const newTask = new Task(req.body);
@@ -31,7 +59,9 @@ app.post("/tasks", async (req, res) => {
 
 // Update task status
 app.patch("/tasks/:id", async (req, res) => {
-  const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+  });
   res.json(updatedTask);
 });
 
